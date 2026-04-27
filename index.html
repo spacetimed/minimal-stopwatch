@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>break</title>
+  <link rel="icon" href='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="black"/><circle cx="32" cy="32" r="10" fill="%23262626"/></svg>'>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap");
+
+    :root {
+      color-scheme: dark;
+      --bg: #000;
+      --fg: #f8f8f8;
+      --muted: #8f8f8f;
+      --dim: #4f4f4f;
+      --line: #202020;
+      --soft: rgba(255, 255, 255, 0.08);
+      --active: #fff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "DM Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0.95;
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      min-height: 100vh;
+      place-items: center;
+      padding: 28px;
+    }
+
+    .shell {
+      display: grid;
+      width: min(720px, 100%);
+      gap: 18px;
+      justify-items: center;
+      text-align: center;
+    }
+
+    .state {
+      color: var(--muted);
+      font-size: clamp(12px, 1.6vw, 14px);
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .timer {
+      font-size: clamp(54px, 13vw, 148px);
+      font-weight: 500;
+      line-height: 0.88;
+      letter-spacing: 0;
+      text-shadow: 0 0 28px rgba(255, 255, 255, 0.12);
+      white-space: nowrap;
+    }
+
+    .subtimer {
+      min-height: 20px;
+      color: var(--muted);
+      font-size: clamp(13px, 1.9vw, 16px);
+      font-weight: 500;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    button {
+      min-width: 104px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--fg);
+      font: inherit;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    button:hover {
+      border-color: #6a6a6a;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    button.primary {
+      border-color: #f2f2f2;
+      background: var(--fg);
+      color: #000;
+    }
+
+    button.ghost {
+      color: var(--muted);
+    }
+
+    .log {
+      width: min(560px, 100%);
+      max-height: 188px;
+      overflow: auto;
+      border-top: 1px solid var(--line);
+      padding-top: 14px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+      text-align: left;
+      scrollbar-color: #444 #050505;
+    }
+
+    .entry {
+      display: grid;
+      grid-template-columns: minmax(0, max-content) minmax(90px, 1fr);
+      gap: 10px;
+      align-items: baseline;
+      padding: 1px 0;
+    }
+
+    .entry.current .range {
+      color: var(--fg);
+    }
+
+    .range {
+      white-space: nowrap;
+    }
+
+    .note {
+      min-width: 0;
+      border: 0;
+      border-bottom: 1px solid transparent;
+      padding: 0;
+      background: transparent;
+      color: #c8c8c8;
+      font: inherit;
+      outline: none;
+    }
+
+    .note::placeholder {
+      color: var(--dim);
+    }
+
+    .note:focus {
+      border-bottom-color: #555;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      color: var(--dim);
+      font-size: 11px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 560px) {
+      main {
+        padding: 18px;
+      }
+
+      .timer {
+        font-size: clamp(46px, 17vw, 74px);
+      }
+
+      .entry {
+        grid-template-columns: 1fr;
+        gap: 0;
+      }
+
+      button {
+        min-width: 96px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="particles" aria-hidden="true"></canvas>
+  <main>
+    <section class="shell" aria-label="Shift timer">
+      <div class="state" id="stateLabel">break</div>
+      <div class="timer" id="timer">00:00:00</div>
+      <div class="subtimer" id="subtimer">ready</div>
+      <div class="controls">
+        <button class="primary" id="beginButton" type="button">begin</button>
+        <button id="breakButton" type="button">break</button>
+        <button class="ghost" id="resetButton" type="button">reset</button>
+      </div>
+      <div class="log" id="log" aria-label="Shift log"></div>
+      <div class="meta">
+        <span id="shiftTotal">shift total 00:00</span>
+        <span id="breakTotal">break total 00:00</span>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "basic-shift-timer-v1";
+    const beginButton = document.querySelector("#beginButton");
+    const breakButton = document.querySelector("#breakButton");
+    const resetButton = document.querySelector("#resetButton");
+    const timer = document.querySelector("#timer");
+    const subtimer = document.querySelector("#subtimer");
+    const stateLabel = document.querySelector("#stateLabel");
+    const log = document.querySelector("#log");
+    const shiftTotal = document.querySelector("#shiftTotal");
+    const breakTotal = document.querySelector("#breakTotal");
+
+    const defaultState = {
+      mode: "break",
+      activeId: null,
+      events: [],
+      counts: { shift: 0, break: 0 }
+    };
+
+    let state = loadState();
+
+    function loadState() {
+      try {
+        return { ...defaultState, ...JSON.parse(localStorage.getItem(STORAGE_KEY)) };
+      } catch {
+        return structuredClone(defaultState);
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function now() {
+      return Date.now();
+    }
+
+    function clock(ts) {
+      return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+    }
+
+    function duration(ms, withSeconds = false) {
+      const total = Math.max(0, Math.floor(ms / 1000));
+      const hours = Math.floor(total / 3600);
+      const minutes = Math.floor((total % 3600) / 60);
+      const seconds = total % 60;
+      const two = (value) => String(value).padStart(2, "0");
+
+      if (withSeconds) {
+        return `${two(hours)}:${two(minutes)}:${two(seconds)}`;
+      }
+
+      return `${two(hours)}:${two(minutes)}`;
+    }
+
+    function titleDuration(ms) {
+      const totalMinutes = Math.max(0, Math.floor(ms / 60000));
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}h` : `${minutes}m`;
+    }
+
+    function activeEvent() {
+      return state.events.find((event) => event.id === state.activeId) || null;
+    }
+
+    function beginWork() {
+      const current = activeEvent();
+      if (current) {
+        current.end = now();
+      }
+
+      state.counts.shift += 1;
+      const id = crypto.randomUUID();
+      state.mode = "working";
+      state.activeId = id;
+      state.events.push({
+        id,
+        type: "shift",
+        index: state.counts.shift,
+        start: now(),
+        end: null,
+        note: ""
+      });
+      saveState();
+      render(true);
+    }
+
+    function beginBreak() {
+      const current = activeEvent();
+      if (current) {
+        current.end = now();
+      }
+
+      state.counts.break += 1;
+      const id = crypto.randomUUID();
+      state.mode = "break";
+      state.activeId = id;
+      state.events.push({
+        id,
+        type: "break",
+        index: state.counts.break,
+        start: now(),
+        end: null,
+        note: ""
+      });
+      saveState();
+      render(true);
+    }
+
+    function resetAll() {
+      if (!confirm("reset timer log?")) {
+        return;
+      }
+
+      state = structuredClone(defaultState);
+      saveState();
+      render(true);
+    }
+
+    function eventMs(event, at = now()) {
+      return (event.end || at) - event.start;
+    }
+
+    function sum(type) {
+      const at = now();
+      return state.events
+        .filter((event) => event.type === type)
+        .reduce((total, event) => total + eventMs(event, at), 0);
+    }
+
+    function render(forceLog = false) {
+      const current = activeEvent();
+      const at = now();
+      const isWorking = current?.type === "shift" && !current.end;
+      const isBreaking = current?.type === "break" && !current.end;
+
+      stateLabel.textContent = isWorking ? `shift ${current.index}` : "break";
+      timer.textContent = current ? duration(eventMs(current, at), true) : "00:00:00";
+      subtimer.textContent = current
+        ? `${clock(current.start)} - now (${current.type} ${current.index})`
+        : "ready";
+
+      beginButton.textContent = isBreaking ? "continue" : "begin";
+      beginButton.classList.toggle("primary", !isWorking);
+      breakButton.classList.toggle("primary", isWorking);
+      breakButton.disabled = !isWorking;
+
+      shiftTotal.textContent = `shift total ${duration(sum("shift"))}`;
+      breakTotal.textContent = `break total ${duration(sum("break"))}`;
+
+      if (forceLog) {
+        renderLog();
+      } else {
+        updateLogRanges();
+      }
+
+      if (isWorking) {
+        document.title = `working ${titleDuration(eventMs(current, at))}`;
+      } else if (isBreaking && state.events.length > 0) {
+        document.title = `break ${titleDuration(eventMs(current, at))}`;
+      } else {
+        document.title = "break";
+      }
+    }
+
+    function renderLog() {
+      const at = now();
+      log.innerHTML = "";
+      if (state.events.length === 0) {
+        const empty = document.createElement("div");
+        empty.textContent = "no entries yet";
+        log.append(empty);
+        return;
+      }
+
+      for (const event of state.events) {
+        const row = document.createElement("div");
+        const isCurrent = !event.end;
+        row.className = `entry${isCurrent ? " current" : ""}`;
+
+        const range = document.createElement("span");
+        range.className = "range";
+        range.dataset.eventId = event.id;
+        range.textContent = `${clock(event.start)} - ${event.end ? clock(event.end) : "now"} (${event.type} ${event.index})`;
+
+        const note = document.createElement("input");
+        note.className = "note";
+        note.value = event.note || "";
+        note.placeholder = isCurrent && event.type === "shift" ? "[notes...]" : "";
+        note.ariaLabel = `${event.type} ${event.index} notes`;
+        note.addEventListener("input", () => {
+          event.note = note.value;
+          saveState();
+        });
+
+        row.append(range, note);
+        log.append(row);
+      }
+
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function updateLogRanges() {
+      if (state.events.length === 0 || log.children.length !== state.events.length) {
+        renderLog();
+        return;
+      }
+
+      for (const event of state.events) {
+        const range = log.querySelector(`.range[data-event-id="${event.id}"]`);
+        if (range) {
+          range.textContent = `${clock(event.start)} - ${event.end ? clock(event.end) : "now"} (${event.type} ${event.index})`;
+        }
+      }
+    }
+
+    beginButton.addEventListener("click", beginWork);
+    breakButton.addEventListener("click", beginBreak);
+    resetButton.addEventListener("click", resetAll);
+    window.addEventListener("beforeunload", (event) => {
+      event.preventDefault();
+      event.returnValue = "";
+    });
+
+    setInterval(render, 1000);
+    render(true);
+
+    const canvas = document.querySelector("#particles");
+    const ctx = canvas.getContext("2d");
+    let particles = [];
+    let width = 0;
+    let height = 0;
+    let pixelRatio = 1;
+
+    function resizeParticles() {
+      pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = Math.floor(width * pixelRatio);
+      canvas.height = Math.floor(height * pixelRatio);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+      const count = Math.min(180, Math.max(70, Math.floor((width * height) / 9000)));
+      particles = Array.from({ length: count }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        r: Math.random() * 0.75 + 0.35,
+        vx: (Math.random() - 0.5) * 0.22,
+        vy: (Math.random() - 0.5) * 0.22,
+        a: Math.random() * 0.55 + 0.32,
+        twinkle: Math.random() * Math.PI * 2,
+        twinkleSpeed: Math.random() * 0.035 + 0.012,
+        glow: Math.random() > 0.82
+      }));
+    }
+
+    function drawParticles() {
+      ctx.clearRect(0, 0, width, height);
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < -10) p.x = width + 10;
+        if (p.x > width + 10) p.x = -10;
+        if (p.y < -10) p.y = height + 10;
+        if (p.y > height + 10) p.y = -10;
+
+        p.twinkle += p.twinkleSpeed;
+        const alpha = Math.min(1, Math.max(0.22, p.a + Math.sin(p.twinkle) * 0.2));
+
+        if (p.glow) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r * 2.2, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255,255,255,${alpha * 0.16})`;
+          ctx.fill();
+        }
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+        ctx.fill();
+      }
+
+      requestAnimationFrame(drawParticles);
+    }
+
+    window.addEventListener("resize", resizeParticles);
+    resizeParticles();
+    drawParticles();
+  </script>
+</body>
+</html>
