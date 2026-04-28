@@ -142,9 +142,9 @@
 
     .entry {
       display: grid;
-      grid-template-columns: minmax(0, max-content) minmax(90px, 1fr);
+      grid-template-columns: minmax(0, max-content) minmax(90px, 1fr) 22px;
       gap: 10px;
-      align-items: baseline;
+      align-items: start;
       padding: 1px 0;
     }
 
@@ -157,14 +157,21 @@
     }
 
     .note {
+      display: block;
+      width: 100%;
       min-width: 0;
+      min-height: 20px;
+      max-height: 120px;
       border: 0;
       border-bottom: 1px solid transparent;
       padding: 0;
       background: transparent;
       color: #c8c8c8;
       font: inherit;
+      line-height: 1.6;
       outline: none;
+      overflow: hidden;
+      resize: none;
     }
 
     .note::placeholder {
@@ -173,6 +180,31 @@
 
     .note:focus {
       border-bottom-color: #555;
+    }
+
+    .delete-entry {
+      display: grid;
+      width: 18px;
+      min-width: 0;
+      height: 18px;
+      place-items: center;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      color: #3f3f3f;
+      font-size: 13px;
+      line-height: 1;
+      opacity: 0;
+    }
+
+    .entry:hover .delete-entry,
+    .delete-entry:focus {
+      opacity: 1;
+    }
+
+    .delete-entry:hover {
+      color: #dedede;
+      background: transparent;
     }
 
     .meta {
@@ -198,8 +230,18 @@
       }
 
       .entry {
-        grid-template-columns: 1fr;
-        gap: 0;
+        grid-template-columns: minmax(0, 1fr) 22px;
+        gap: 0 8px;
+      }
+
+      .range,
+      .note {
+        grid-column: 1;
+      }
+
+      .delete-entry {
+        grid-column: 2;
+        grid-row: 1 / span 2;
       }
 
       button {
@@ -248,6 +290,7 @@
     };
 
     let state = loadState();
+    normalizeCounts();
 
     function loadState() {
       try {
@@ -259,6 +302,18 @@
 
     function saveState() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function normalizeCounts() {
+      const counts = { shift: 0, break: 0 };
+      for (const event of state.events) {
+        counts[event.type] += 1;
+        event.index = counts[event.type];
+      }
+      state.counts = counts;
+      if (!activeEvent()) {
+        state.activeId = null;
+      }
     }
 
     function now() {
@@ -348,6 +403,18 @@
       render(true);
     }
 
+    function deleteEvent(id) {
+      const deletedActive = state.activeId === id;
+      state.events = state.events.filter((event) => event.id !== id);
+      if (deletedActive) {
+        state.mode = "break";
+        state.activeId = null;
+      }
+      normalizeCounts();
+      saveState();
+      render(true);
+    }
+
     function eventMs(event, at = now()) {
       return (event.end || at) - event.start;
     }
@@ -414,21 +481,42 @@
         range.dataset.eventId = event.id;
         range.textContent = `${clock(event.start)} - ${event.end ? clock(event.end) : "now"} (${event.type} ${event.index})`;
 
-        const note = document.createElement("input");
+        const note = document.createElement("textarea");
         note.className = "note";
         note.value = event.note || "";
         note.placeholder = isCurrent && event.type === "shift" ? "[notes...]" : "";
         note.ariaLabel = `${event.type} ${event.index} notes`;
         note.addEventListener("input", () => {
           event.note = note.value;
+          syncNoteHeight(note);
           saveState();
         });
+        note.addEventListener("keydown", (keyEvent) => {
+          if (keyEvent.key === "Enter" && !keyEvent.shiftKey) {
+            keyEvent.preventDefault();
+            note.blur();
+          }
+        });
 
-        row.append(range, note);
+        const deleteButton = document.createElement("button");
+        deleteButton.className = "delete-entry";
+        deleteButton.type = "button";
+        deleteButton.textContent = "x";
+        deleteButton.title = `delete ${event.type} ${event.index}`;
+        deleteButton.ariaLabel = `delete ${event.type} ${event.index}`;
+        deleteButton.addEventListener("click", () => deleteEvent(event.id));
+
+        row.append(range, note, deleteButton);
         log.append(row);
+        syncNoteHeight(note);
       }
 
       log.scrollTop = log.scrollHeight;
+    }
+
+    function syncNoteHeight(note) {
+      note.style.height = "auto";
+      note.style.height = `${note.scrollHeight}px`;
     }
 
     function updateLogRanges() {
