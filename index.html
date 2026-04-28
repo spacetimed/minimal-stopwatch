@@ -132,17 +132,18 @@
       max-height: 188px;
       overflow: auto;
       border-top: 1px solid var(--line);
-      padding-top: 14px;
+      padding: 14px 14px 0 0;
       color: var(--muted);
       font-size: 12px;
       line-height: 1.6;
       text-align: left;
+      scrollbar-gutter: stable;
       scrollbar-color: #444 #050505;
     }
 
     .entry {
       display: grid;
-      grid-template-columns: minmax(0, max-content) minmax(90px, 1fr) 22px;
+      grid-template-columns: minmax(0, max-content) minmax(90px, 1fr) 18px;
       gap: 10px;
       align-items: start;
       padding: 1px 0;
@@ -184,7 +185,7 @@
 
     .delete-entry {
       display: grid;
-      width: 18px;
+      width: 16px;
       min-width: 0;
       height: 18px;
       place-items: center;
@@ -230,7 +231,7 @@
       }
 
       .entry {
-        grid-template-columns: minmax(0, 1fr) 22px;
+        grid-template-columns: minmax(0, 1fr) 18px;
         gap: 0 8px;
       }
 
