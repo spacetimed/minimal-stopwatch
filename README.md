@@ -1,7 +1,10 @@
 # work-stopwatch
 
-As distraction free as a work tracking stopwatch can be. 
+An extremely minimal stopwatch to structure your tasks throughout the day.
+
 
 ![example 1](example1.png)
 
 ![example 2](example2.png)
+
+![example 3](example2.png)
