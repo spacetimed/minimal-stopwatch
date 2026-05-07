@@ -380,10 +380,50 @@
     }
 
     .notes-summary {
+      display: grid;
+      gap: 6px;
       margin-top: 20px;
       color: var(--muted);
       font-size: 12px;
       line-height: 1.7;
+    }
+
+    .summary-line {
+      display: grid;
+      grid-template-columns: 9px minmax(78px, max-content) minmax(96px, max-content) minmax(58px, max-content) minmax(0, 1fr);
+      gap: 8px;
+      align-items: baseline;
+    }
+
+    .summary-line-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+
+    .summary-line.shift .summary-line-dot {
+      background: #4ade80;
+    }
+
+    .summary-line.break .summary-line-dot {
+      background: #f59e0b;
+    }
+
+    .summary-line-name {
+      color: #d8d8d8;
+    }
+
+    .summary-line-time {
+      color: var(--dim);
+    }
+
+    .summary-line-duration {
+      color: var(--fg);
+    }
+
+    .summary-line-note {
+      min-width: 0;
+      color: var(--muted);
       white-space: pre-wrap;
     }
 
@@ -449,6 +489,17 @@
 
       .summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .summary-line {
+        grid-template-columns: 9px minmax(70px, max-content) 1fr;
+        gap: 2px 8px;
+      }
+
+      .summary-line-time,
+      .summary-line-duration,
+      .summary-line-note {
+        grid-column: 2 / -1;
       }
     }
   </style>
@@ -579,6 +630,19 @@
       const hours = Math.floor(totalMinutes / 60);
       const minutes = totalMinutes % 60;
       return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}h` : `${minutes}m`;
+    }
+
+    function compactDuration(ms) {
+      const totalMinutes = Math.max(0, Math.round(ms / 60000));
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      if (hours > 0 && minutes > 0) {
+        return `${hours}h${minutes}m`;
+      }
+      if (hours > 0) {
+        return `${hours}h`;
+      }
+      return `${minutes}m`;
     }
 
     function activeEvent() {
@@ -755,11 +819,40 @@
     }
 
     function renderNotesSummary() {
-      const notes = state.events
-        .filter((event) => event.note?.trim())
-        .map((event) => `${event.type} ${event.index}: ${event.note.trim()}`);
+      notesSummary.innerHTML = "";
+      if (state.events.length === 0) {
+        notesSummary.textContent = "no blocks today";
+        return;
+      }
 
-      notesSummary.textContent = notes.length ? notes.join("\n") : "no notes today";
+      for (const event of state.events) {
+        const eventEnd = event.end || now();
+        const range = `${clock(event.start)} - ${clock(eventEnd)}`;
+        const row = document.createElement("div");
+        row.className = `summary-line ${event.type}`;
+
+        const dot = document.createElement("span");
+        dot.className = "summary-line-dot";
+
+        const name = document.createElement("span");
+        name.className = "summary-line-name";
+        name.textContent = `${event.type} ${event.index}`;
+
+        const time = document.createElement("span");
+        time.className = "summary-line-time";
+        time.textContent = range;
+
+        const net = document.createElement("span");
+        net.className = "summary-line-duration";
+        net.textContent = compactDuration(eventEnd - event.start);
+
+        const note = document.createElement("span");
+        note.className = "summary-line-note";
+        note.textContent = event.note?.trim() || "";
+
+        row.append(dot, name, time, net, note);
+        notesSummary.append(row);
+      }
     }
 
     function showCompleteModal() {
